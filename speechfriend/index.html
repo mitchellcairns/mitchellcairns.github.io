@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delayed Audio Playback</title>
+</head>
+<body>
+    <label for="delayInput">Enter delay (in seconds):</label>
+    <input type="number" id="delayInput" value="0.001" min="0.001" max="10.0" step="0.25">
+    <br>
+    <button id="startButton">Start</button>
+    <br>
+    <button id="stopButton" disabled>Stop</button>
+
+    <br>
+    <label for="volumeSlider">Volume:</label>
+    <input type="range" id="volumeSlider" min="0" max="2" step="0.01" value="1">
+
+    <script>
+        const delayInput = document.getElementById('delayInput');
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const volumeSlider = document.getElementById('volumeSlider');
+
+        let audioContext, mediaStreamSource, delayNode, outputGain;
+        let isPlaying = false;
+
+        startButton.addEventListener('click', startAudioPlayback);
+        volumeSlider.addEventListener('input', updateVolume);
+        stopButton.addEventListener('click', stopAudioPlayback);
+
+        function startAudioPlayback() {
+            if (isPlaying) {
+                stopAudioPlayback();
+            }
+
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    audioContext = new AudioContext({sampleRate: 96000, channelCount: 1});
+                    mediaStreamSource = audioContext.createMediaStreamSource(stream);
+                    delayNode = audioContext.createDelay(10.0); // Maximum delay of 5 seconds
+                    outputGain = audioContext.createGain();
+
+                    const delay = parseFloat(delayInput.value);
+                    if (delay > 0) {
+                        delayNode = audioContext.createDelay(5.0); // Maximum delay of 5 seconds
+                        delayNode.delayTime.value = delay;
+                        mediaStreamSource.connect(delayNode);
+                        delayNode.connect(outputGain);
+                    } else {
+                        mediaStreamSource.connect(outputGain);
+                    }
+
+                    outputGain.connect(audioContext.destination);
+
+                    updateVolume(); // Set initial volume
+
+                    isPlaying = true;
+                    startButton.disabled = true;
+                    stopButton.disabled = false;
+                })
+                .catch(error => console.error('Error accessing microphone:', error));
+        }
+
+        function updateVolume() {
+            if (outputGain) {
+                outputGain.gain.value = volumeSlider.value;
+            }
+        }
+
+        function stopAudioPlayback() {
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+                mediaStreamSource = null;
+                delayNode = null;
+                outputGain = null;
+                startButton.disabled = false;
+                stopButton.disabled = true;
+            }
+            isPlaying = false;
+        }
+
+        delayInput.addEventListener('input', () => {
+            if (isPlaying) {
+                startAudioPlayback();
+            }
+        });
+    </script>
+</body>
+</html>
